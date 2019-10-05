@@ -1,29 +1,28 @@
 package com.rogerbassons.avnavmap
 
-import androidx.appcompat.app.AppCompatActivity
+import android.app.Activity
 import android.os.Bundle
+import android.view.*
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
 import org.osmdroid.util.GeoPoint
-import android.view.ViewGroup
-import android.view.LayoutInflater
-import android.view.View
 import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.modules.MapTileDownloader
-import org.osmdroid.tileprovider.modules.NetworkAvailabliltyCheck
-import org.osmdroid.tileprovider.MapTileProviderArray
-import org.osmdroid.tileprovider.modules.MapTileFilesystemProvider
-import org.osmdroid.tileprovider.modules.TileWriter
 import org.osmdroid.tileprovider.tilesource.XYTileSource
-import org.osmdroid.tileprovider.util.SimpleRegisterReceiver
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 
 
 
 
-class MainActivity : AppCompatActivity() {
+
+
+
+
+class MainActivity : Activity() {
 
     private var map: MapView? = null
+    private var mLocationOverlay: MyLocationNewOverlay? = null
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,17 +40,23 @@ class MainActivity : AppCompatActivity() {
         //note, the load method also sets the HTTP User Agent to your application's package name, abusing osm's tile servers will get you banned based on this string
 
         //inflate and create the map
+        requestWindowFeature(Window.FEATURE_NO_TITLE)
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_main)
 
         map = findViewById<MapView>(R.id.map)
         map!!.setTileSource(TileSourceFactory.MAPNIK)
 
         map!!.setMultiTouchControls(true)
+        map!!.setBuiltInZoomControls(false)
 
-        val mapController = map!!.controller
-        mapController!!.setZoom(9.5)
-        val startPoint = GeoPoint(42.0, 2.8)
-        mapController.setCenter(startPoint)
+
+        setStaringPoint()
+
+        setLocationOverlay()
+
     }
 
     public override fun onResume() {
@@ -78,6 +83,7 @@ class MainActivity : AppCompatActivity() {
         savedInstanceState: Bundle
     ): View {
 
+
         val urls = arrayOf("http://tile.openstreetmap.org/")
         val tileSource = XYTileSource(
             "Mapnik",
@@ -88,10 +94,27 @@ class MainActivity : AppCompatActivity() {
             urls
         )
 
-        val mMapView = findViewById<MapView>(R.id.map)
-        mMapView.setTileSource(tileSource)
+        map!!.setTileSource(tileSource)
 
-        return mMapView
+
+        return map!!
+    }
+
+    private fun setStaringPoint() {
+        val mapController = map!!.controller
+        mapController!!.setZoom(9.5)
+        val startPoint = GeoPoint(42.0, 2.8)
+        mapController.setCenter(startPoint)
+    }
+
+    private fun setLocationOverlay() {
+        val gpsProvider = GpsMyLocationProvider(applicationContext)
+        gpsProvider.locationUpdateMinDistance = 10f
+        gpsProvider.locationUpdateMinTime = 1
+
+        mLocationOverlay = MyLocationNewOverlay(gpsProvider, map)
+        mLocationOverlay!!.enableMyLocation()
+        map!!.overlays.add(this.mLocationOverlay)
     }
 
 }
