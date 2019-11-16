@@ -1,7 +1,7 @@
 package com.rogerbassons.avnavmap
 
 import android.app.Activity
-import android.graphics.Color
+import android.graphics.*
 import android.os.Bundle
 import android.view.*
 import androidx.core.graphics.ColorUtils
@@ -10,12 +10,64 @@ import org.osmdroid.views.MapView
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.XYTileSource
+import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+import java.lang.Math.*
+import kotlin.math.pow
 
 interface OnAipTaskCompleted {
     fun onTaskCompleted(airspaces: List<Airspace>)
+}
+
+class TextOverlay : Overlay {
+
+    private val paint = Paint()
+    private var firstPoint: GeoPoint? = null
+    private var secondPoint: GeoPoint? = null
+    private var text: String = ""
+
+
+    constructor(firstPoint: GeoPoint, secondPoint: GeoPoint, txt: String) {
+        this.firstPoint = firstPoint
+        this.secondPoint = secondPoint
+
+        paint.color = Color.BLACK
+        paint.textSize = 20f
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+
+        text = txt
+    }
+
+    override fun draw(c: Canvas, osmv: MapView, shadow: Boolean) {
+        if (shadow) {
+            return
+        }
+
+        var p1= Point()
+        var p2= Point()
+        osmv.projection.toPixels(firstPoint, p1)
+        osmv.projection.toPixels(secondPoint, p2)
+
+        var path = Path()
+        path.moveTo(p1.x.toFloat(), p1.y.toFloat())
+        path.lineTo(p2.x.toFloat(), p2.y.toFloat())
+
+
+        var mat = Matrix()
+
+        var dx = abs(p1.x - p2.x).toDouble()
+        var dy = abs(p1.y - p2.y).toDouble()
+        var dist = sqrt(dx.pow(2) + dy.pow(2))
+
+        mat.setTranslate((-dy / dist).toFloat() * 20, (dx / dist).toFloat() * 40)
+        path.transform(mat)
+
+
+        c.drawTextOnPath(text, path, 0f, 0f, paint)
+    }
 }
 
 class MainActivity : Activity(), OnAipTaskCompleted {
@@ -126,9 +178,22 @@ class MainActivity : Activity(), OnAipTaskCompleted {
             val color = getAirspaceColor(it)
             polygon.fillPaint.color = ColorUtils.setAlphaComponent(color, 60)
             polygon.outlinePaint.color = ColorUtils.setAlphaComponent(color, 80)
+            polygon.subDescription ="test"
 
             map!!.overlayManager.add(polygon)
+
+
+            map!!.overlayManager.add(
+                TextOverlay(
+                    polygon.points[0],
+                    polygon.points[1],
+                    it.bottomLimit + " - " + it.topLimit
+                )
+            )
+
+
         }
+
     }
 
     private fun getAirspaceColor(airspace: Airspace): Int {

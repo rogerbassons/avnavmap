@@ -14,7 +14,7 @@ public class AipTaskParams internal constructor(
     internal var listener: OnAipTaskCompleted
 )
 
-data class Airspace(val polygon: List<GeoPoint>, val type: String)
+data class Airspace(val polygon: List<GeoPoint>, val type: String, val bottomLimit: String, val topLimit: String)
 
 
 public class AipTask : AsyncTask<AipTaskParams, Void, List<Airspace> >() {

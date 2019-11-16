@@ -7,6 +7,7 @@ import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserException
 import java.io.IOException
 import java.io.InputStream
+import kotlin.math.roundToInt
 
 
 private val ns: String? = null
@@ -48,7 +49,6 @@ class AipXmlParser {
                 continue
             }
 
-            Log.d("PARSER", parser.name)
             if (parser.name == "AIRSPACES") {
                 asps = readAirspaces(parser)
             } else {
@@ -68,7 +68,6 @@ class AipXmlParser {
                 continue
             }
 
-            Log.d("PARSER", parser.name)
             if (parser.name == "ASP") {
                 val airspace = readASP(parser)
                 if (airspace != null) {
@@ -93,20 +92,71 @@ class AipXmlParser {
             category = ""
         }
 
+        var geometry = listOf<GeoPoint>()
+        var topLimit = ""
+        var bottomLimit = ""
+
         while (parser.next() != XmlPullParser.END_TAG) {
             if (parser.eventType != XmlPullParser.START_TAG) {
                 continue
             }
 
-            if (parser.name == "GEOMETRY") {
+            when {
+                parser.name == "GEOMETRY" -> { geometry = readGeometry(parser)!! }
+                parser.name == "ALTLIMIT_TOP" -> { topLimit = readAltlimit(parser, "TOP") }
+                parser.name == "ALTLIMIT_BOTTOM" -> { bottomLimit = readAltlimit(parser, "BOTTOM") }
+                else -> skip(parser)
+            }
 
-                airspace = Airspace(readGeometry(parser)!!, category)
 
+
+        }
+
+        airspace = Airspace(geometry!!, category, bottomLimit, topLimit)
+
+        return airspace
+    }
+
+    @Throws(XmlPullParserException::class, IOException::class)
+    private fun readAltlimit(parser: XmlPullParser, type: String): String {
+        var alt = ""
+
+        parser.require(XmlPullParser.START_TAG, ns, "ALTLIMIT_$type")
+        while (parser.next() != XmlPullParser.END_TAG) {
+            if (parser.eventType != XmlPullParser.START_TAG) {
+                continue
+            }
+
+            if (parser.name == "ALT") {
+                alt = readAlt(parser)
             } else {
                 skip(parser)
             }
         }
-        return airspace
+        return alt
+    }
+
+    @Throws(XmlPullParserException::class, IOException::class)
+    private fun readAlt(parser: XmlPullParser): String {
+
+        var unit = parser.getAttributeValue(null, "UNIT")
+
+        var text = ""
+
+        if (parser.next() == XmlPullParser.TEXT) {
+            text = parser.text
+            parser.nextTag()
+        }
+
+        var value = text.toDouble()
+        if (unit == "F") {
+            text = value.roundToInt().toString() + " FT"
+        } else if (unit == "FL") {
+            text = "FL" + value.roundToInt().toString()
+        }
+
+
+        return text
     }
 
     @Throws(XmlPullParserException::class, IOException::class)
@@ -145,8 +195,6 @@ class AipXmlParser {
         }
 
 
-        Log.d("PARSER", parser.name)
-        Log.d("POLYGON", text)
         return points
     }
 
