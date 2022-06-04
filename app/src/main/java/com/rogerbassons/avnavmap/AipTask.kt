@@ -31,7 +31,7 @@ public class AipTask : AsyncTask<AipTaskParams, Void, List<Airspace> >() {
         try {
             airspaces = loadAirspacesXML()
         } catch (e: Exception) {
-            Log.e("XML", e.message)
+            e.message?.let { Log.e("XML", it) }
         }
         return airspaces
     }
