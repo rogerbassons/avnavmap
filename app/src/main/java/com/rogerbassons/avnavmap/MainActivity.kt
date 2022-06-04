@@ -3,20 +3,24 @@ package com.rogerbassons.avnavmap
 import android.app.Activity
 import android.graphics.*
 import android.os.Bundle
+import android.os.Environment
+import android.os.StrictMode
 import android.view.*
 import androidx.core.graphics.ColorUtils
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.views.MapView
-import org.osmdroid.util.GeoPoint
 import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.tileprovider.tilesource.XYTileSource
-import org.osmdroid.views.overlay.Marker
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.CustomZoomButtonsController
+import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+import java.io.File
 import java.lang.Math.*
 import kotlin.math.pow
+
 
 interface OnAipTaskCompleted {
     fun onTaskCompleted(airspaces: List<Airspace>)
@@ -88,7 +92,19 @@ class MainActivity : Activity(), OnAipTaskCompleted {
         //it 'should' ensure that the map has a writable location for the map cache, even without permissions
         //if no tiles are displayed, you can try overriding the cache path using Configuration.getInstance().setCachePath
         //see also StorageUtils
-        //note, the load method also sets the HTTP User Agent to your application's package name, abusing osm's tile servers will get you banned based on this string
+
+        val policy = StrictMode.ThreadPolicy.Builder().permitAll().build()
+        StrictMode.setThreadPolicy(policy)
+
+        Configuration.getInstance().osmdroidBasePath =
+            File(Environment.getExternalStorageDirectory(), "osmdroid")
+        Configuration.getInstance().osmdroidTileCache =
+            File(Environment.getExternalStorageDirectory(), "osmdroid/tiles")
+
+        val osmConf = Configuration.getInstance()
+        val tileCache = File(cacheDir.absolutePath, "tile")
+        osmConf.osmdroidTileCache = tileCache
+
 
         //inflate and create the map
         requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -101,7 +117,7 @@ class MainActivity : Activity(), OnAipTaskCompleted {
         map!!.setTileSource(TileSourceFactory.MAPNIK)
 
         map!!.setMultiTouchControls(true)
-        map!!.setBuiltInZoomControls(false)
+        map!!.zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
 
         AipTask().execute(AipTaskParams(applicationContext, this))
 
@@ -136,7 +152,7 @@ class MainActivity : Activity(), OnAipTaskCompleted {
     ): View {
 
 
-        val urls = arrayOf("http://tile.openstreetmap.org/")
+        val urls = arrayOf("https://tile.openstreetmap.org/")
         val tileSource = XYTileSource(
             "Mapnik",
             0,
@@ -198,7 +214,7 @@ class MainActivity : Activity(), OnAipTaskCompleted {
 
     private fun getAirspaceColor(airspace: Airspace): Int {
         when(airspace.type) {
-            "DANGER" -> return Color.YELLOW
+            "DANGER" -> return Color.rgb(255, 165, 0)
             "RESTRICTED" -> return Color.RED
             "PROHIBITED" -> return Color.RED
             else -> return Color.BLUE
