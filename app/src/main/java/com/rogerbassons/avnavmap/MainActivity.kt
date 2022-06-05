@@ -99,11 +99,7 @@ class MainActivity : Activity(), OnAipTaskCompleted {
         Configuration.getInstance().osmdroidBasePath =
             File(Environment.getExternalStorageDirectory(), "osmdroid")
         Configuration.getInstance().osmdroidTileCache =
-            File(Environment.getExternalStorageDirectory(), "osmdroid/tiles")
-
-        val osmConf = Configuration.getInstance()
-        val tileCache = File(cacheDir.absolutePath, "tile")
-        osmConf.osmdroidTileCache = tileCache
+            File(cacheDir.absolutePath, "tile")
 
 
         //inflate and create the map
@@ -188,7 +184,7 @@ class MainActivity : Activity(), OnAipTaskCompleted {
     override fun onTaskCompleted(airspaces: List<Airspace>) {
         airspaces.forEach {
             val polygon = Polygon()    //see note below
-            polygon.points = it.polygon
+            polygon.points = it.GetGeometry()
             polygon.title = "AIRSPACE"
 
             val color = getAirspaceColor(it)
@@ -201,23 +197,24 @@ class MainActivity : Activity(), OnAipTaskCompleted {
 
             map!!.overlayManager.add(
                 TextOverlay(
-                    polygon.points[0],
-                    polygon.points[1],
-                    it.bottomLimit + " - " + it.topLimit
+                    polygon.actualPoints[0],
+                    polygon.actualPoints[1],
+                    it.GetClassText() + " " + it.GetLowerLimitText() + " - " + it.GetUpperLimitText()
                 )
             )
 
 
         }
 
+        map!!.invalidate()
+
     }
 
     private fun getAirspaceColor(airspace: Airspace): Int {
-        when(airspace.type) {
-            "DANGER" -> return Color.rgb(255, 165, 0)
-            "RESTRICTED" -> return Color.RED
-            "PROHIBITED" -> return Color.RED
-            else -> return Color.BLUE
+        return when(airspace.type) {
+            2,3,8,9,14,16,19,25 -> Color.RED
+            1 -> Color.rgb(255, 165, 0)
+            else -> Color.BLUE
         }
     }
 

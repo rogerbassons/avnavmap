@@ -4,8 +4,8 @@ package com.rogerbassons.avnavmap
 import android.content.Context
 import android.os.AsyncTask
 import android.util.Log
-import org.osmdroid.util.GeoPoint
-import org.xmlpull.v1.XmlPullParserException
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
 import java.io.IOException
 import java.lang.Exception
 
@@ -13,8 +13,6 @@ public class AipTaskParams internal constructor(
     internal var context: Context,
     internal var listener: OnAipTaskCompleted
 )
-
-data class Airspace(val polygon: List<GeoPoint>, val type: String, val bottomLimit: String, val topLimit: String)
 
 
 public class AipTask : AsyncTask<AipTaskParams, Void, List<Airspace> >() {
@@ -26,12 +24,11 @@ public class AipTask : AsyncTask<AipTaskParams, Void, List<Airspace> >() {
         this.context = params.context
         this.listener = params.listener
 
-
         var airspaces = listOf<Airspace>()
         try {
-            airspaces = loadAirspacesXML()
+            airspaces = loadAirspaces()
         } catch (e: Exception) {
-            e.message?.let { Log.e("XML", it) }
+            e.message?.let { Log.e("loading airspaces", it) }
         }
         return airspaces
     }
@@ -41,13 +38,9 @@ public class AipTask : AsyncTask<AipTaskParams, Void, List<Airspace> >() {
     }
 
 
-    @Throws(XmlPullParserException::class, IOException::class)
-    private fun loadAirspacesXML(): List<Airspace> {
-
-        val am = this.context!!.assets
-        var stream = am.open("openaip_airspace_spain_es.aip")
-
-        return AipXmlParser().parse(stream)
+    @Throws(IOException::class)
+    private fun loadAirspaces(): List<Airspace> {
+        return AipStore(context).getAirspaces()
     }
 
 
