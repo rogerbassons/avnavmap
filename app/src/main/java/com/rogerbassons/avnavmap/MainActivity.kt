@@ -7,6 +7,7 @@ import android.os.Environment
 import android.os.StrictMode
 import android.view.*
 import androidx.core.graphics.ColorUtils
+import earcut4j.Earcut
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.tileprovider.tilesource.XYTileSource
@@ -181,24 +182,72 @@ class MainActivity : Activity(), OnAipTaskCompleted {
         map!!.overlays.add(this.mLocationOverlay)
     }
 
+    private fun displayAirspace(a: Airspace, airspaces: List<Airspace>): Boolean {
+         var display = true
+
+        val itr = airspaces.listIterator()
+        while (display && itr.hasNext()) {
+            val it = itr.next()
+            display = it.GetGeometry() != a.GetGeometry() || a.lowerLimit!!.value < it.lowerLimit!!.value
+        }
+
+        return display
+    }
+
+    private fun removeAt(index: Int, list: MutableList<Airspace>): MutableList<Airspace> {
+        list.removeAt((index))
+        return list
+    }
+
+    private fun triangleArea(A: GeoPoint, B: GeoPoint, C: GeoPoint): Double {
+        var area = (A.longitude * (B.latitude - C.latitude) + B.longitude * (C.latitude - A.latitude) + C.longitude * (A.latitude - B.latitude)) / 2.0f;
+        return kotlin.math.abs(area)
+    }
+
+
+    private fun getPointInsidePolygon(polygon: List<GeoPoint>): GeoPoint {
+        val list = polygon.map { arrayOf(it.latitude, it.longitude) }.toTypedArray().flatten().toDoubleArray()
+        val triangles = Earcut.earcut(list, null, 2)
+
+        var maxArea = 0.0
+        var point = polygon.first()
+        var i = 0
+        while(i < triangles.count() - 4) {
+            val pointA = polygon[triangles[i]]
+            val pointB = polygon[triangles[i + 1]]
+            val pointC = polygon[triangles[i + 2]]
+
+            val area = triangleArea(pointA, pointB, pointC)
+            if (area > maxArea) {
+                maxArea = area
+                point = GeoPoint((pointA.latitude + pointB.latitude + pointC.latitude) / 3.0, (pointA.longitude + pointB.longitude + pointC.longitude) / 3.0)
+            }
+            i += 3
+        }
+
+        return point
+    }
+
     override fun onTaskCompleted(airspaces: List<Airspace>) {
-        airspaces.forEach {
+        var list = airspaces.filter { it.GetClassText() != "E" }.toMutableList()
+
+        list.filterIndexed { index, it -> displayAirspace(it,
+            removeAt(index, list.toMutableList()) as List<Airspace>
+        ) }.forEach {
             val polygon = Polygon()    //see note below
             polygon.points = it.GetGeometry()
-            polygon.title = "AIRSPACE"
 
             val color = getAirspaceColor(it)
-            polygon.fillPaint.color = ColorUtils.setAlphaComponent(color, 60)
+            //polygon.fillPaint.color = ColorUtils.setAlphaComponent(color, 60)
             polygon.outlinePaint.color = ColorUtils.setAlphaComponent(color, 80)
-            polygon.subDescription ="test"
 
             map!!.overlayManager.add(polygon)
 
-
+            val point = getPointInsidePolygon(polygon.actualPoints)
             map!!.overlayManager.add(
                 TextOverlay(
-                    polygon.actualPoints[0],
-                    polygon.actualPoints[1],
+                    point,
+                    GeoPoint(point.latitude, point.longitude + 0.5),
                     it.GetClassText() + " " + it.GetLowerLimitText() + " - " + it.GetUpperLimitText()
                 )
             )
