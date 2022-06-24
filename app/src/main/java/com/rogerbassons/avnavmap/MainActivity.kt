@@ -2,6 +2,7 @@ package com.rogerbassons.avnavmap
 
 import android.app.Activity
 import android.graphics.*
+import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.os.Environment
 import android.os.StrictMode
@@ -14,8 +15,10 @@ import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.Polygon
+import org.osmdroid.views.overlay.infowindow.MarkerInfoWindow
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import java.io.File
@@ -244,13 +247,16 @@ class MainActivity : Activity(), OnAipTaskCompleted {
             map!!.overlayManager.add(polygon)
 
             val point = getPointInsidePolygon(polygon.actualPoints)
-            map!!.overlayManager.add(
-                TextOverlay(
-                    point,
-                    GeoPoint(point.latitude, point.longitude + 0.5),
-                    it.GetClassText() + " " + it.GetLowerLimitText() + " - " + it.GetUpperLimitText()
-                )
-            )
+            val info = MarkerInfoWindow(R.layout.bonuspack_bubble, map!!)
+
+
+            val m = Marker(map!!)
+            m.position = point
+            m.title =  it.name
+            m.subDescription = it.GetClassText() + " " + it.GetLowerLimitText() + " - " + it.GetUpperLimitText()
+            m.infoWindow = info
+            m.icon = getTextIcon(it.GetClassText(), it.GetLowerLimitText(), it.GetUpperLimitText(), color)
+            map!!.overlayManager.add(m)
 
 
         }
@@ -258,6 +264,37 @@ class MainActivity : Activity(), OnAipTaskCompleted {
         map!!.invalidate()
 
     }
+
+    private fun getTextIcon(airspaceClass: String, lowerLimit: String, upperLimit: String, color: Int): BitmapDrawable {
+        val p = Paint().apply {
+            this.color = color
+            textSize = 30F
+            isAntiAlias = true
+            typeface = Typeface.DEFAULT_BOLD
+            textAlign = Paint.Align.LEFT
+        }
+        
+        val p2 = Paint().apply {
+            this.color = color
+            textSize = 20F
+            isAntiAlias = true
+            typeface = Typeface.DEFAULT_BOLD
+            textAlign = Paint.Align.LEFT
+        }
+
+        val padding = 10f
+
+        val width = (p.measureText("$airspaceClass $lowerLimit") + padding).toInt()
+        val baseline = (-p.ascent() + padding).toInt()
+        val height = (baseline + p.descent() + padding).toInt()
+        val image = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val c = Canvas(image)
+        c.drawText(airspaceClass!!, 0f, baseline.toFloat(), p)
+        c.drawText(lowerLimit!!, 20f, baseline.toFloat() + padding, p2)
+        c.drawText(upperLimit!!, 20f, baseline.toFloat() - padding, p2)
+        return BitmapDrawable(map!!.context.resources, image)
+    }
+
 
     private fun getAirspaceColor(airspace: Airspace): Int {
         return when(airspace.type) {
