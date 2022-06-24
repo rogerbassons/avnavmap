@@ -36,6 +36,8 @@ class Airspace(
     var byNotam: Boolean = false,
     var specialAgreement: Boolean = false,
     var geometry: Geometry? = null,
+    var display: Boolean = true,
+    var parents: List<Airspace>? = null,
     var country: String? = null,
     var upperLimit: UpperLimit? = null,
     var lowerLimit: LowerLimit? = null,

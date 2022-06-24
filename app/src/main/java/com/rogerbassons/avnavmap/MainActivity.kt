@@ -185,16 +185,19 @@ class MainActivity : Activity(), OnAipTaskCompleted {
         map!!.overlays.add(this.mLocationOverlay)
     }
 
-    private fun displayAirspace(a: Airspace, airspaces: List<Airspace>): Boolean {
-         var display = true
+    private fun displayAirspace(a: Airspace, airspaces: MutableList<Airspace>): Boolean {
+         a.display = true
 
         val itr = airspaces.listIterator()
-        while (display && itr.hasNext()) {
+        while (a.display && itr.hasNext()) {
             val it = itr.next()
-            display = it.GetGeometry() != a.GetGeometry() || a.lowerLimit!!.value < it.lowerLimit!!.value
+            a.display = it.GetGeometry() != a.GetGeometry() || a.lowerLimit!!.value < it.lowerLimit!!.value
+            if (!a.display) {
+                it.parents = it.parents.orEmpty().plus(listOf(a))
+            }
         }
 
-        return display
+        return a.display
     }
 
     private fun removeAt(index: Int, list: MutableList<Airspace>): MutableList<Airspace> {
@@ -234,9 +237,8 @@ class MainActivity : Activity(), OnAipTaskCompleted {
     override fun onTaskCompleted(airspaces: List<Airspace>) {
         var list = airspaces.filter { it.GetClassText() != "E" }.toMutableList()
 
-        list.filterIndexed { index, it -> displayAirspace(it,
-            removeAt(index, list.toMutableList()) as List<Airspace>
-        ) }.forEach {
+        list.filterIndexed { index, it -> displayAirspace(it, removeAt(index, list.toMutableList())) }
+        .forEach {
             val polygon = Polygon()    //see note below
             polygon.points = it.GetGeometry()
 
@@ -244,16 +246,22 @@ class MainActivity : Activity(), OnAipTaskCompleted {
             //polygon.fillPaint.color = ColorUtils.setAlphaComponent(color, 60)
             polygon.outlinePaint.color = ColorUtils.setAlphaComponent(color, 80)
 
-            map!!.overlayManager.add(polygon)
-
+            var subDescription = it.GetClassText() + " " + it.GetLowerLimitText() + " - " + it.GetUpperLimitText()
             val point = getPointInsidePolygon(polygon.actualPoints)
+
             val info = MarkerInfoWindow(R.layout.bonuspack_bubble, map!!)
 
+            map!!.overlayManager.add(polygon)
 
+
+            val parents = (it.parents?.map { it2 -> it2.GetClassText() + " " + it2.GetLowerLimitText() + " - " + it2.GetUpperLimitText()})?.joinToString(separator = "<br>")
+            if (!parents.isNullOrEmpty()) {
+                subDescription += "<br>" + parents
+            }
             val m = Marker(map!!)
             m.position = point
             m.title =  it.name
-            m.subDescription = it.GetClassText() + " " + it.GetLowerLimitText() + " - " + it.GetUpperLimitText()
+            m.subDescription = subDescription
             m.infoWindow = info
             m.icon = getTextIcon(it.GetClassText(), it.GetLowerLimitText(), it.GetUpperLimitText(), color)
             map!!.overlayManager.add(m)
